@@ -61,6 +61,7 @@ ui <- fluidPage(
       textOutput("first_summary"),
       textOutput("second_summary"),
       textOutput("change_summary"),
+      downloadButton('download',"Download the Daily Change data"),
       plotOutput("distPlot")
     )
   )
@@ -75,6 +76,7 @@ server <- function(input, output) {
   first_summary = reactiveVal("")
   second_summary = reactiveVal("")
   change_summary = reactiveVal("")
+  thedata <- reactiveVal(NULL)
 
   output$distPlot <- renderPlot({
 
@@ -101,6 +103,7 @@ server <- function(input, output) {
     first_summary(paste0(input$first_shares_name, " return: ", round(investment_switch_results$first_return,digits = 1)))
     second_summary(paste0(input$second_shares_name, " return: ", round(investment_switch_results$second_return,digits = 1)))
     change_summary(paste0("Strategy return: ", round(investment_switch_results$change_return,digits = 1)))
+    thedata(investment_switch_results$data)
     investment_switch_results$plot
   })
 
@@ -115,6 +118,13 @@ server <- function(input, output) {
   output$change_summary = renderText({
     change_summary()
   })
+
+  output$download <- downloadHandler(
+    filename = function(){"daily_change.csv"},
+    content = function(fname){
+      write.csv(thedata(), fname,row.names = F)
+    }
+  )
 }
 
 # Run the application

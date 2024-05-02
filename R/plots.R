@@ -4,23 +4,23 @@ renderInvementSwitchPlot <- function(daily_change_df, first_shares_name, second_
                                      test_filt_func = function(dates)dates>"2022-01-01",
                                      macd_factor = 4, differential_trigger = 0.73,
                                      days = 9, first_ema_n = 12, second_ema_n = 26, smoothing = 2
-                                     ){
+){
   library(ggplot2)
   library(reshape2)
 
   test.first = getMacdDf(getDfForField(daily_change_df,first_shares_name),
                          filt_func = test_filt_func,
                          days = days, first_ema_n = first_ema_n, second_ema_n = second_ema_n, smoothing = smoothing
-                         )
+  )
   test.second = getMacdDf(getDfForField(daily_change_df,second_shares_name),
                           filt_func = test_filt_func,
                           days = days, first_ema_n = first_ema_n, second_ema_n = second_ema_n, smoothing = smoothing
-                          )
+  )
 
 
   is_other = getModeChoiceBasedOnMacd(test.second$macd,test.first$macd,differential_trigger = differential_trigger)
-  change = test.first$change
-  change[is_other] = test.second$change[is_other]
+  change_per_day = test.first$change
+  change_per_day[is_other] = test.second$change[is_other]
 
 
   df = data.frame(
@@ -43,15 +43,38 @@ renderInvementSwitchPlot <- function(daily_change_df, first_shares_name, second_
     geom_hline(yintercept = 0)  +
     geom_point(data = df, mapping = aes(x = date, y = 0, color = factor(option)))
 
-  first = tail(dailyRateToSharePrice(daily_change_df[,first_shares_name][test_filt_func(as.Date(rownames(daily_change_df)))]),n=1)
-  second = tail(dailyRateToSharePrice(daily_change_df[,second_shares_name][test_filt_func(as.Date(rownames(daily_change_df)))]),n=1)
-  change = tail(dailyRateToSharePrice(change),n=1)
+
+  date_filt = test_filt_func(as.Date(rownames(daily_change_df)))
+  first = tail(dailyRateToSharePrice(daily_change_df[,first_shares_name][date_filt]),n=1)
+  second = tail(dailyRateToSharePrice(daily_change_df[,second_shares_name][date_filt]),n=1)
+  change = tail(dailyRateToSharePrice(change_per_day),n=1)
+
+  first_second = data.frame(
+    first = daily_change_df[date_filt,first_shares_name],
+    first_cumulative = dailyRateToSharePrice(daily_change_df[date_filt,first_shares_name]),
+    second = daily_change_df[date_filt,second_shares_name],
+    second_cumulative = dailyRateToSharePrice(daily_change_df[date_filt,second_shares_name])
+  )
+  colnames(first_second) = c(first_shares_name,paste0(first_shares_name,"_cumulative"),second_shares_name,paste0(second_shares_name,"_cumulative"))
+
+  strategy_option = rep(first_shares_name,length(is_other))
+  strategy_option[is_other] = second_shares_name
+  data = cbind(
+    data.frame(date = rownames(daily_change_df)[date_filt]),
+    first_second,
+    data.frame(
+      strategy_option = strategy_option,
+      strategy_daily_change = change_per_day,
+      strategy_cumulative = dailyRateToSharePrice(change_per_day)
+    )
+  )
 
   return(list(
     plot = p,
     first_return = first,
     second_return = second,
-    change_return = change
+    change_return = change,
+    data = data
   ))
 
 
